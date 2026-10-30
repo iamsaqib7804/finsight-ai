@@ -1,0 +1,15 @@
+Flask
+Flask-Login
+Flask-SocketIO
+Flask-CORS
+Flask-Limiter
+python-socketio
+eventlet
+mysql-connector-python
+scikit-learn
+pandas
+numpy
+joblib
+python-dotenv
+Werkzeug
+Pillow

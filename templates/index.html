@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinSight AI — Intelligent Expense Management</title>
+  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='25' fill='%23635bff'/><text x='50' y='68' font-size='60' font-weight='800' fill='white' text-anchor='middle' font-family='Arial'>F</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', filename='assets/style.css') }}">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">F</div>
+        <div>
+          <div class="brand-name">FinSight AI</div>
+          <div class="brand-sub">Smart Expense Intelligence</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-page="dashboard"><span>⌂</span> Dashboard</button>
+        <button class="nav-item" data-page="transactions"><span>↔</span> Transactions</button>
+        <button class="nav-item" data-page="groups"><span>◈</span> Groups</button>
+        <button class="nav-item" data-page="budgets"><span>◫</span> Budgets</button>
+        <button class="nav-item" data-page="insights"><span>✦</span> ML Insights</button>
+        <button class="nav-item" data-page="settlements"><span>⇄</span> Settlements</button>
+        <button class="nav-item" data-page="reports"><span>▥</span> Reports</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="ai-card">
+          <div class="ai-icon">✦</div>
+          <div>
+            <strong>AI is learning</strong>
+            <p>Your spending patterns are being analyzed.</p>
+          </div>
+        </div>
+        <button class="nav-item" data-page="settings"><span>⚙</span> Settings</button>
+        <div class="profile-mini">
+          <div class="avatar" id="userAvatar">--</div>
+          <div>
+            <strong id="userName">Loading...</strong>
+            <small>Personal account</small>
+          </div>
+          <span class="dots">•••</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="eyebrow" id="pageEyebrow">OVERVIEW</div>
+          <h1 id="pageTitle">Good morning 👋</h1>
+        </div>
+        <div class="top-actions">
+          <div class="month-select" id="monthSelect">Current Month <span>⌄</span></div>
+          <button class="icon-btn" title="Live sync indicator" id="liveBtn">
+            <span id="liveIcon">◉</span>
+          </button>
+          <button class="primary-btn" id="quickAddBtn">+ Add expense</button>
+        </div>
+      </header>
+
+      <!-- DASHBOARD -->
+      <section id="dashboard" class="page active-page">
+        <div class="hero-grid">
+          <div class="balance-card">
+            <div class="card-top">
+              <div>
+                <span class="muted">Available balance</span>
+                <h2 id="dashBalance">₹0</h2>
+              </div>
+              <span class="trend positive" id="dashBalanceTrend">↑ 0%</span>
+            </div>
+            <div class="balance-row">
+              <div><span>Income</span><strong id="dashIncome">₹0</strong></div>
+              <div><span>Expenses</span><strong id="dashExpenses">₹0</strong></div>
+            </div>
+            <div class="progress"><span id="dashProgress" style="width:0%"></span></div>
+            <small id="dashProgressLabel">0% of your income spent this month</small>
+          </div>
+
+          <div class="prediction-card">
+            <div class="prediction-head">
+              <div class="section-icon purple">✦</div>
+              <div>
+                <span class="muted">AI budget prediction</span>
+                <h3 id="dashPrediction">₹0</h3>
+              </div>
+              <span class="confidence" id="dashConfidence">0% confidence</span>
+            </div>
+            <p id="dashPredictionText">Analyzing your spending patterns...</p>
+            <div class="prediction-bar"><span id="dashPredBar" style="width:0%"></span><b id="dashPredBarLabel">₹0</b></div>
+            <button class="text-btn" data-page="insights">View prediction details →</button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card"><span class="stat-icon blue">₹</span><div><span>Total income</span><strong id="statIncome">₹0</strong><small class="positive">This month</small></div></div>
+          <div class="stat-card"><span class="stat-icon red">↘</span><div><span>Total expenses</span><strong id="statExpenses">₹0</strong><small class="negative" id="statExpenseCount">0 categories</small></div></div>
+          <div class="stat-card"><span class="stat-icon green">◔</span><div><span>Savings rate</span><strong id="statSavings">0%</strong><small class="positive">This month</small></div></div>
+          <div class="stat-card"><span class="stat-icon orange">!</span><div><span>Overspending risk</span><strong id="statRisk">Low</strong><small id="statRiskDetail">0 categories need attention</small></div></div>
+        </div>
+
+        <div class="content-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <div><h3>Spending overview</h3><p>Monthly trend vs prediction</p></div>
+              <div class="legend"><span><i class="dot actual"></i> Actual</span><span><i class="dot predicted"></i> Predicted</span></div>
+            </div>
+            <div class="chart-wrap">
+              <div class="y-axis" id="trendYAxis"><span>--</span><span>--</span><span>--</span><span>--</span><span>0</span></div>
+              <div class="chart-area">
+                <div class="gridline" style="top:0"></div>
+                <div class="gridline" style="top:25%"></div>
+                <div class="gridline" style="top:50%"></div>
+                <div class="gridline" style="top:75%"></div>
+                <div class="gridline" style="top:100%"></div>
+                <svg viewBox="0 0 700 260" preserveAspectRatio="none" class="line-chart" id="trendChart">
+                  <polyline class="actual-line" points="" id="actualLine"/>
+                  <polyline class="pred-line" points="" id="predLine"/>
+                </svg>
+                <div class="x-axis" id="trendXAxis"><span>--</span><span>--</span><span>--</span><span>--</span><span>--</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h3>Category breakdown</h3><p>Where your money goes</p></div></div>
+            <div class="donut-row">
+              <div class="donut" id="donutChart"><div><b id="donutTotal">₹0</b><small>spent</small></div></div>
+              <div class="category-list" id="categoryList"><p style="font-size:11px;color:#999">Loading...</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content-grid bottom-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <div><h3>Recent transactions</h3><p>Latest classified expenses</p></div>
+              <button class="link-btn" data-page="transactions">View all →</button>
+            </div>
+            <div id="recentTransactions" class="transactions-list"><p style="font-size:11px;color:#999">Loading...</p></div>
+          </div>
+          <div class="panel alert-panel">
+            <div class="panel-head">
+              <div><h3>AI alerts</h3><p>Things worth your attention</p></div>
+              <span class="alert-count" id="alertCount">0</span>
+            </div>
+            <div id="alertsList"><p style="font-size:11px;color:#999">No alerts. All good! ✓</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRANSACTIONS -->
+      <section id="transactions" class="page">
+        <div class="page-toolbar">
+          <div><h2>Transactions</h2><p>Automatically classified and ready for review.</p></div>
+          <button class="primary-btn" id="addTransactionBtn">+ Add transaction</button>
+        </div>
+        <div class="filter-row">
+          <input id="searchInput" type="search" placeholder="Search merchant or description...">
+          <select id="filterCategory">
+            <option>All categories</option>
+            <option>Food</option><option>Travel</option><option>Shopping</option>
+            <option>Bills</option><option>Entertainment</option><option>Other</option>
+          </select>
+          <button class="secondary-btn" id="refreshTransactionsBtn">↻ Refresh</button>
+        </div>
+        <div class="panel table-panel">
+          <table>
+            <thead>
+              <tr><th>Transaction</th><th>Date</th><th>Category</th><th>Source</th><th>Amount</th><th>AI confidence</th><th></th></tr>
+            </thead>
+            <tbody id="transactionTable">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:#999">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- GROUPS -->
+      <section id="groups" class="page">
+        <div class="page-toolbar">
+          <div><h2>Groups</h2><p>Split expenses with friends, family, or teammates.</p></div>
+          <button class="primary-btn" id="createGroupBtn">+ New group</button>
+        </div>
+        <div class="budget-grid" id="groupsGrid"><p style="font-size:11px;color:#999;padding:20px">Loading...</p></div>
+      </section>
+
+      <!-- SETTLEMENTS -->
+      <section id="settlements" class="page">
+        <div class="page-toolbar">
+          <div><h2>Settlements</h2><p>Who owes whom — across all your groups.</p></div>
+          <button class="secondary-btn" id="refreshSettlementsBtn">↻ Refresh</button>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-head"><div><h3>🔔 Awaiting your confirmation</h3><p>Payments sent to you</p></div></div>
+          <div id="incomingSettlements"><p style="font-size:11px;color:#999">No pending confirmations.</p></div>
+        </div>
+
+        <div class="panel" style="margin-bottom:16px">
+          <div class="panel-head"><div><h3>⏳ Pending from others</h3><p>Payments you sent, awaiting their confirmation</p></div></div>
+          <div id="outgoingSettlements"><p style="font-size:11px;color:#999">No outgoing settlements pending.</p></div>
+        </div>
+
+        <div class="content-grid">
+          <div class="panel">
+            <div class="panel-head"><div><h3>You need to pay</h3><p>Pending outgoing settlements</p></div></div>
+            <div id="toPayList"><p style="font-size:11px;color:#999">Loading...</p></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div><h3>You will receive</h3><p>Pending incoming settlements</p></div></div>
+            <div id="toReceiveList"><p style="font-size:11px;color:#999">Loading...</p></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:16px">
+          <div class="panel-head"><div><h3>Settlement history</h3><p>All your past settlements</p></div></div>
+          <div id="settlementHistory"><p style="font-size:11px;color:#999">Loading...</p></div>
+        </div>
+      </section>
+
+      <!-- BUDGETS -->
+      <section id="budgets" class="page">
+        <div class="page-toolbar">
+          <div><h2>Budgets</h2><p>Personalized recommendations from your predicted spending.</p></div>
+          <button class="primary-btn" id="createBudgetBtn">+ Create budget</button>
+        </div>
+        <div class="budget-grid" id="budgetGrid"><p style="font-size:11px;color:#999;padding:20px">Loading...</p></div>
+        <div class="panel recommendation" id="budgetSuggestion" style="display:none">
+          <div class="section-icon purple">✦</div>
+          <div>
+            <span class="muted">AI recommendation</span>
+            <h3 id="budgetSuggestionTitle">-</h3>
+            <p id="budgetSuggestionText">-</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ML INSIGHTS -->
+      <section id="insights" class="page">
+        <div class="page-toolbar">
+          <div><h2>ML Insights</h2><p>Understand how the system classifies, predicts, and flags spending.</p></div>
+          <span class="model-badge">Model status: Active</span>
+        </div>
+        <div class="insight-grid">
+          <div class="panel">
+            <div class="model-head"><div class="section-icon purple">⌁</div><div><h3>Expense classification</h3><p>Naive Bayes / TF-IDF</p></div><span class="accuracy">~90%</span></div>
+            <div class="confidence-row"><span>Classification model</span><b>6 categories</b></div>
+            <div class="confidence-bar"><span style="width:90%"></span></div>
+            <div class="explain">
+              <b>Try it live:</b>
+              <p>Type a description below — the model will predict the category.</p>
+              <input id="testClassifyInput" placeholder="e.g. Swiggy dinner order"
+                style="width:100%;margin-top:8px;padding:9px;border:1px solid #e9ebf0;border-radius:9px;font:inherit;font-size:11px;outline:none">
+              <button class="text-btn" id="testClassifyBtn" style="margin-top:8px">Classify →</button>
+              <div id="classifyResult" style="margin-top:8px"></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="model-head"><div class="section-icon blue">↗</div><div><h3>Budget prediction</h3><p>WMA + Linear Trend</p></div><span class="accuracy" id="predAccuracy">-</span></div>
+            <div class="forecast" id="forecastPanel"><div><span>Current</span><b>-</b></div><span class="arrow">→</span><div><span>Predicted</span><b>-</b></div></div>
+            <div class="mini-bars" id="miniBars"></div>
+          </div>
+          <div class="panel anomaly">
+            <div class="model-head"><div class="section-icon orange">!</div><div><h3>Overspending detection</h3><p>Z-score based</p></div><span class="warning-badge" id="riskBadge">-</span></div>
+            <div id="riskList"><p style="font-size:11px;color:#999">Loading...</p></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div><h3>How the system works</h3><p>From transaction to actionable insight</p></div></div>
+          <div class="pipeline">
+            <div><span>01</span><b>Transaction</b><small>UPI / Card / Cash</small></div><i>→</i>
+            <div><span>02</span><b>Preprocessing</b><small>Clean + tokenize</small></div><i>→</i>
+            <div><span>03</span><b>Classification</b><small>TF-IDF + ML</small></div><i>→</i>
+            <div><span>04</span><b>Prediction</b><small>Future spending</small></div><i>→</i>
+            <div><span>05</span><b>XAI</b><small>Explain result</small></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- REPORTS -->
+      <section id="reports" class="page">
+        <div class="page-toolbar"><div><h2>Reports</h2><p>Monthly financial overview and category trends.</p></div></div>
+        <div class="report-cards" id="reportCards"><div class="report-card"><span>Monthly spend</span><b>₹0</b><small>Loading</small></div></div>
+        <div class="panel report-summary" style="margin-top:16px">
+          <h3>Monthly summary</h3>
+          <p id="reportSummary">Loading...</p>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="settings" class="page">
+        <div class="page-toolbar"><div><h2>Settings</h2><p>Configure your account and expense preferences.</p></div></div>
+        <div class="settings-panel panel">
+          <label>Display name<input id="settingsName" placeholder="Your name"></label>
+          <label>Email<input id="settingsEmail" disabled></label>
+          <label>Monthly income<input id="settingsIncome" type="number" placeholder="50000"></label>
+          <button class="primary-btn" id="saveSettingsBtn">Save changes</button>
+          <button class="secondary-btn" id="logoutBtn" style="margin-top:10px">Logout</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- EXPENSE MODAL -->
+  <!-- ============ EXPENSE MODAL ============ -->
+<div class="modal" id="expenseModal">
+  <div class="modal-card" style="width:min(520px,95vw)">
+    <button class="close" id="closeModal">×</button>
+    <h2>Add expense</h2>
+    <p>Enter transaction details — AI will classify it.</p>
+
+    <label>Description
+      <input id="expenseDesc" placeholder="e.g. Swiggy dinner">
+    </label>
+
+    <div class="two-col">
+      <label>Amount
+        <input id="expenseAmount" type="number" placeholder="₹">
+      </label>
+      <label>Source
+        <select id="expenseSource">
+          <option>UPI</option>
+          <option>Card</option>
+          <option>Cash</option>
+          <option>Online</option>
+        </select>
+      </label>
+    </div>
+
+    <label>Group
+      <select id="expenseGroup" onchange="onExpenseGroupChange()">
+        <option value="">Personal (no group)</option>
+      </select>
+    </label>
+
+    <!-- ⭐ Participant selector — shown when group selected -->
+    <div id="participantSection" style="display:none;margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <label style="margin:0">Who's involved?</label>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="gd-btn-small" onclick="selectAllParticipants()">Select all</button>
+          <button type="button" class="gd-btn-small" onclick="clearAllParticipants()">Clear</button>
+        </div>
+      </div>
+      <div id="participantList" class="participant-list"></div>
+      <div style="margin-top:10px;font-size:11px;color:#8b929d" id="participantSummary">
+        Select at least 1 participant
+      </div>
+    </div>
+
+    <label>Category
+      <select id="expenseCategory">
+        <option>Auto-classify with AI</option>
+        <option>Food</option>
+        <option>Travel</option>
+        <option>Shopping</option>
+        <option>Bills</option>
+        <option>Entertainment</option>
+        <option>Other</option>
+      </select>
+    </label>
+
+    <div id="classificationPreview" style="display:none;margin-top:8px;padding:9px;background:#faf9ff;border-radius:9px;font-size:10px;color:#665bff"></div>
+
+    <button class="primary-btn full" id="saveExpense">Save expense</button>
+  </div>
+</div>
+
+  <!-- GROUP MODAL -->
+  <!-- ============ GROUP MODAL ============ -->
+<div class="modal" id="groupModal">
+  <div class="modal-card">
+    <button class="close" id="closeGroupModal">×</button>
+    <h2 id="groupModalTitle">Create group</h2>
+    <p id="groupModalSubtitle">Create a group to split expenses.</p>
+
+    <label>Group name
+      <input id="groupName" placeholder="e.g. Goa Trip 2027">
+    </label>
+
+    <label>Description (optional)
+      <input id="groupDesc" placeholder="Short description">
+    </label>
+
+    <!-- Add member section — only for existing groups -->
+    <div id="groupAddMemberSection" style="display:none;margin-top:16px">
+      <div style="padding:12px;background:#fafbfc;border-radius:12px">
+        <b style="font-size:11px;display:block;margin-bottom:8px">➕ Add members</b>
+        <div style="display:flex;gap:6px">
+          <input id="addMemberEmail" placeholder="friend@example.com"
+                 style="flex:1;padding:9px;border:1px solid #e9ebf0;border-radius:9px;font-size:11px;outline:none">
+          <button type="button" class="primary-btn" onclick="addMemberToGroup()">Add</button>
+        </div>
+        <div id="addMemberStatus" style="margin-top:8px;font-size:10px"></div>
+      </div>
+
+      <div style="margin-top:14px">
+        <b style="font-size:11px;display:block;margin-bottom:8px">Current members</b>
+        <div id="groupMemberList"></div>
+      </div>
+    </div>
+
+    <button class="primary-btn full" id="saveGroup">Create group</button>
+  </div>
+</div>
+  <!-- BUDGET MODAL -->
+  <div class="modal" id="budgetModal">
+    <div class="modal-card">
+      <button class="close" id="closeBudgetModal">×</button>
+      <h2>Create budget</h2>
+      <p>Set a monthly budget for a category.</p>
+      <label>Category<select id="budgetCategory">
+        <option>Food</option><option>Travel</option><option>Shopping</option>
+        <option>Bills</option><option>Entertainment</option><option>Other</option>
+      </select></label>
+      <label>Monthly limit<input id="budgetLimit" type="number" placeholder="10000"></label>
+      <button class="primary-btn full" id="saveBudget">Save budget</button>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='assets/app.js') }}"></script>
+</body>
+</html>

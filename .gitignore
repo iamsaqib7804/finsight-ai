@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual Environment
+venv/
+env/
+.venv/
+
+# Cache & Testing
+.pytest_cache/
+.cache/
+
+# Environment Variables (Secret)
+.env
+
+# Logs
+logs/
+*.log
+
+# Receipts (Uploaded files)
+static/receipts/*
+!static/receipts/.gitkeep
+
+# VS Code
+.vscode/
+.idea/
+
+# Database (Optional, but good practice)
+*.db
+*.sqlite3
