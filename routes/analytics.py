@@ -11,8 +11,10 @@ analytics_bp = Blueprint('analytics', __name__)
 @analytics_bp.route('/category-breakdown', methods=['GET'])
 @login_required
 def category_breakdown():
+    # ⭐ FIX: Month parameter accept karo
     month = request.args.get('month') or datetime.now().strftime('%Y-%m')
     year, m = map(int, month.split('-'))
+    
     totals = get_category_totals(current_user.id, year, m)
     grand = sum(totals.values()) or 1
     breakdown = [{'category': c, 'amount': round(a, 2), 'percentage': round(a / grand * 100, 1)} for c, a in sorted(totals.items(), key=lambda x: -x[1])]

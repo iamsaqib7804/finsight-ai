@@ -26,9 +26,13 @@ def create_expense_with_splits(expense_data, splits):
         return expense_id
 
 def get_expense(expense_id):
+    # ⭐ Added LEFT JOIN groups_table to fetch group name
     e = query_one(
-        """SELECT e.*, u.name AS paid_by_name, u.avatar_initials AS paid_by_avatar
-           FROM expenses e JOIN users u ON e.paid_by_id = u.id
+        """SELECT e.*, u.name AS paid_by_name, u.avatar_initials AS paid_by_avatar,
+                  g.name AS group_name
+           FROM expenses e 
+           JOIN users u ON e.paid_by_id = u.id
+           LEFT JOIN groups_table g ON e.group_id = g.id
            WHERE e.id = %s""",
         (expense_id,)
     )
@@ -45,10 +49,16 @@ def _hydrate(e):
         'id': e['paid_by_id'], 'name': e.get('paid_by_name', ''),
         'avatar': e.get('paid_by_avatar', 'U') or 'U',
     }
+    
+    # ⭐ Added Group Info for UI
+    e['is_group'] = e['group_id'] is not None
+    e['group_name'] = e.get('group_name')
+    
     receipt = e.get('receipt_path')
     e['receipt_path'] = receipt if receipt else None
     e['has_receipt'] = bool(receipt)
     e['receipt_uploaded_at'] = (e['receipt_uploaded_at'].strftime('%d %b %Y') if e.get('receipt_uploaded_at') else None)
+    
     splits = query_all(
         """SELECT es.*, u.name AS user_name
            FROM expense_splits es JOIN users u ON es.user_id = u.id
@@ -63,8 +73,12 @@ def _hydrate(e):
     return e
 
 def get_user_expenses(user_id, category=None, search=None, limit=500):
-    sql = """SELECT e.*, u.name AS paid_by_name, u.avatar_initials AS paid_by_avatar
-             FROM expenses e JOIN users u ON e.paid_by_id = u.id
+    # ⭐ Added LEFT JOIN groups_table
+    sql = """SELECT e.*, u.name AS paid_by_name, u.avatar_initials AS paid_by_avatar,
+                    g.name AS group_name
+             FROM expenses e 
+             JOIN users u ON e.paid_by_id = u.id
+             LEFT JOIN groups_table g ON e.group_id = g.id
              WHERE e.paid_by_id = %s"""
     params = [user_id]
     if category and category not in ('All categories', 'all', ''):
@@ -79,10 +93,15 @@ def get_user_expenses(user_id, category=None, search=None, limit=500):
     return [_hydrate(r) for r in rows]
 
 def get_group_expenses(group_id):
+    # ⭐ Added LEFT JOIN groups_table (though we know group_id is same)
     rows = query_all(
-        """SELECT e.*, u.name AS paid_by_name, u.avatar_initials AS paid_by_avatar
-           FROM expenses e JOIN users u ON e.paid_by_id = u.id
-           WHERE e.group_id = %s ORDER BY e.date DESC""",
+        """SELECT e.*, u.name AS paid_by_name, u.avatar_initials AS paid_by_avatar,
+                  g.name AS group_name
+           FROM expenses e 
+           JOIN users u ON e.paid_by_id = u.id
+           LEFT JOIN groups_table g ON e.group_id = g.id
+           WHERE e.group_id = %s 
+           ORDER BY e.date DESC""",
         (group_id,)
     )
     return [_hydrate(r) for r in rows]

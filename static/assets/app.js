@@ -1,7 +1,7 @@
 // ============================================================
 // FinSight AI — Frontend (Production)
 // Polling 30s + XSS escape + retry backoff + CSRF-free
-// + Member Management + Participant Selector
+// + Member Management + Participant Selector + User XAI
 // ============================================================
 
 const API = '/api';
@@ -13,6 +13,7 @@ let currentGroupId = null;
 let consecutiveErrors = 0;
 let currentGroupMembers = [];
 let selectedParticipants = new Set();
+let currentDashMonth = '';
 
 // ============================================================
 // XSS ESCAPE
@@ -84,7 +85,13 @@ function showToast(msg, type = 'info') {
 // ============================================================
 async function loadDashboard() {
   try {
-    const d = await api('/dashboard/');
+    const url = currentDashMonth ? `/dashboard/?month=${currentDashMonth}` : '/dashboard/';
+    const d = await api(url);
+
+    if (!currentDashMonth) {
+        currentDashMonth = d.month; 
+        populateMonthDropdown(d.month);
+    }
 
     document.getElementById('dashBalance').textContent = money(d.balance);
     document.getElementById('dashIncome').textContent = money(d.income);
@@ -150,6 +157,34 @@ async function loadDashboard() {
   }
 }
 
+function populateMonthDropdown(selectedMonth) {
+    const dropdown = document.getElementById('monthDropdown');
+    if (!dropdown) return;
+
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const now = new Date();
+    let optionsHtml = '';
+
+    for (let i = 0; i < 6; i++) {
+        let d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        let year = d.getFullYear();
+        let monthIndex = d.getMonth();
+        let monthStr = (monthIndex + 1).toString().padStart(2, '0');
+        let value = `${year}-${monthStr}`;
+        let label = `${months[monthIndex]} ${year}`;
+        let selected = (value === selectedMonth) ? 'selected' : '';
+        optionsHtml += `<option value="${value}" ${selected}>${label}</option>`;
+    }
+    dropdown.innerHTML = optionsHtml;
+}
+
+async function changeDashboardMonth(selectedMonth) {
+    currentDashMonth = selectedMonth;
+    showToast(`Loading data for ${selectedMonth}...`, 'info');
+    await loadDashboard();
+}
+window.changeDashboardMonth = changeDashboardMonth;
+
 function renderCategoryDonut(breakdown, total) {
   const donut = document.getElementById('donutChart');
   const list = document.getElementById('categoryList');
@@ -161,11 +196,7 @@ function renderCategoryDonut(breakdown, total) {
     return;
   }
 
-  const colors = {
-    Food: '#665eff', Travel: '#5eb1ff', Shopping: '#ffb15c',
-    Bills: '#ef6e8a', Entertainment: '#20a779', Other: '#d5d9e1'
-  };
-
+  const colors = { Food: '#665eff', Travel: '#5eb1ff', Shopping: '#ffb15c', Bills: '#ef6e8a', Entertainment: '#20a779', Other: '#d5d9e1' };
   let cumulative = 0;
   const stops = breakdown.map(b => {
     const start = cumulative;
@@ -253,7 +284,7 @@ function renderTrendChart(trends, prediction) {
 }
 
 // ============================================================
-// TRANSACTIONS
+// TRANSACTIONS & XAI
 // ============================================================
 async function loadTransactions() {
   try {
@@ -267,7 +298,7 @@ async function loadTransactions() {
     const body = document.getElementById('transactionTable');
 
     if (!data.expenses.length) {
-      body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999">No transactions found.</td></tr>';
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#999">No transactions found.</td></tr>';
       return;
     }
 
@@ -279,6 +310,15 @@ async function loadTransactions() {
         </td>
         <td>${escapeHtml(t.date)}</td>
         <td><span class="category-pill">${escapeHtml(t.category)}</span></td>
+        
+        <!-- ⭐ NAYA COLUMN: Individual vs Group -->
+        <td>
+          ${t.is_group 
+            ? `<span class="group-tag" title="Shared with group">👥 ${escapeHtml(t.group_name || 'Group')}</span>`
+            : `<span class="personal-tag" title="Personal expense">👤 Personal</span>`
+          }
+        </td>
+
         <td>${escapeHtml(t.source)}</td>
         <td><strong>-${money(t.amount)}</strong></td>
         <td><span class="confidence-pill">${escapeHtml(t.ai_confidence)}</span></td>
@@ -288,6 +328,7 @@ async function loadTransactions() {
             : `<button class="more" onclick="openReceiptUpload(${t.id})" title="Upload Receipt">+📎</button>`
           }
           <button class="more" onclick="openComments(${t.id})" title="Comments">💬</button>
+          <button class="more" onclick="showTransactionXai('${escapeHtml(t.description)}', '${escapeHtml(t.category)}', '${escapeHtml(t.ai_confidence)}')" title="AI Explanation" style="color:#635bff;">🧠</button>
           <button class="more" onclick="deleteExpense(${t.id})" title="Delete">🗑</button>
         </td>
       </tr>`).join('');
@@ -307,6 +348,53 @@ async function deleteExpense(id) {
   } catch (e) { showToast(e.message, 'error'); }
 }
 window.deleteExpense = deleteExpense;
+
+// ⭐ TRANSACTION XAI POPUP
+async function showTransactionXai(description, category, confidence) {
+    try {
+        const r = await api('/expenses/classify', { method: 'POST', body: { description } });
+        
+        const modal = document.createElement('div');
+        modal.id = 'genericModal';
+        modal.className = 'modal open';
+        modal.innerHTML = `
+        <div class="modal-card" style="width:min(400px,90vw);">
+          <button class="close" onclick="this.closest('.modal').remove()">×</button>
+          <h2 style="display:flex; align-items:center; gap:8px;"><span>🧠</span> AI Explanation</h2>
+          <p>How we categorized: <b>"${escapeHtml(description)}"</b></p>
+          
+          <div style="background:#fafbfc; padding:16px; border-radius:12px; border:1px solid #e9ebf0; margin-top:16px;">
+            <div style="font-size:10px; color:#8b929d; margin-bottom:8px;">Predicted Category</div>
+            <div style="font-size:18px; font-weight:800; color:#635bff; margin-bottom:16px;">${escapeHtml(category)}</div>
+            
+            <div style="font-size:10px; color:#8b929d; margin-bottom:8px;">AI Confidence</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <div style="flex:1; height:6px; background:#e9ebf0; border-radius:4px; overflow:hidden;">
+                    <div style="width:${confidence.replace('%','')}%; height:100%; background:#20a779; border-radius:4px;"></div>
+                </div>
+                <span style="font-size:11px; font-weight:700; color:#20a779;">${escapeHtml(confidence)}</span>
+            </div>
+          </div>
+
+          <div style="margin-top:16px;">
+             <div style="font-size:10px; color:#8b929d; margin-bottom:8px;">Keywords that influenced this:</div>
+             <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                ${r.keywords && r.keywords.length > 0 
+                    ? r.keywords.map(k => `<span style="background:#efedff; color:#635bff; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600;">${escapeHtml(k)}</span>`).join('')
+                    : '<span style="font-size:10px; color:#999;">No specific keywords matched. Classified by general patterns.</span>'
+                }
+             </div>
+          </div>
+        </div>`;
+        
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
+        
+    } catch(e) {
+        showToast('Could not load AI explanation', 'error');
+    }
+}
+window.showTransactionXai = showTransactionXai;
 
 // ============================================================
 // GROUPS
@@ -1043,7 +1131,7 @@ async function loadSettlements() {
 
     // 1. You need to pay
     const toPay = document.getElementById('toPayList');
-    toPay.innerHTML = ''; // Clear
+    toPay.innerHTML = ''; 
     if (pending.to_pay && pending.to_pay.length) {
       toPay.innerHTML = pending.to_pay.map(p => `
         <div class="settle-row">
@@ -1061,7 +1149,7 @@ async function loadSettlements() {
 
     // 2. You will receive
     const toRecv = document.getElementById('toReceiveList');
-    toRecv.innerHTML = ''; // Clear
+    toRecv.innerHTML = ''; 
     if (pending.to_receive && pending.to_receive.length) {
       toRecv.innerHTML = pending.to_receive.map(p => `
         <div class="settle-row">
@@ -1317,23 +1405,38 @@ document.getElementById('testClassifyBtn').onclick = async () => {
 // REPORTS
 // ============================================================
 async function loadReports() {
+  
   try {
+    const urlDash = currentDashMonth ? `/dashboard/?month=${currentDashMonth}` : '/dashboard/';
+    const urlBreakdown = currentDashMonth ? `/analytics/category-breakdown?month=${currentDashMonth}` : '/analytics/category-breakdown';
+    
     const [dash, breakdown] = await Promise.all([
-      api('/dashboard/'),
-      api('/analytics/category-breakdown')
+      api(urlDash),
+      api(urlBreakdown)
     ]);
+
     const avg = dash.total_expenses / 30;
+    
+    const incomePct = dash.income ? ((dash.total_expenses / dash.income) * 100).toFixed(0) : 0;
+    const topCatName = breakdown.breakdown && breakdown.breakdown.length > 0 ? breakdown.breakdown[0].category : 'None';
+    const topCatAmount = breakdown.breakdown && breakdown.breakdown.length > 0 ? money(breakdown.breakdown[0].amount) : '₹0';
+    const projectedAmt = dash.prediction && dash.prediction.prediction ? shortMoney(dash.prediction.prediction) : '₹0';
+    const alertsCount = dash.alerts ? dash.alerts.length : 0;
+
     document.getElementById('reportCards').innerHTML = `
-      <div class="report-card"><span>Monthly spend</span><b>${shortMoney(dash.total_expenses)}</b><small>${dash.income ? ((dash.total_expenses / dash.income) * 100).toFixed(0) : 0}% of income</small></div>
+      <div class="report-card"><span>Monthly spend</span><b>${shortMoney(dash.total_expenses)}</b><small>${incomePct}% of income</small></div>
       <div class="report-card"><span>Average daily</span><b>${shortMoney(avg)}</b><small>30 days</small></div>
-      <div class="report-card"><span>Top category</span><b>${escapeHtml(breakdown.breakdown[0]?.category || '-')}</b><small>${breakdown.breakdown[0] ? money(breakdown.breakdown[0].amount) : '-'}</small></div>
-      <div class="report-card"><span>Projected</span><b>${shortMoney(dash.prediction.prediction)}</b><small>AI forecast</small></div>
+      <div class="report-card"><span>Top category</span><b>${escapeHtml(topCatName)}</b><small>${topCatAmount}</small></div>
+      <div class="report-card"><span>Projected</span><b>${projectedAmt}</b><small>AI forecast</small></div>
     `;
+
     document.getElementById('reportSummary').textContent =
-      `Spending: ${money(dash.total_expenses)}. Savings rate: ${dash.savings_rate}%. ${dash.alerts.length} alerts.`;
+      `Spending: ${money(dash.total_expenses)}. Savings rate: ${dash.savings_rate}%. ${alertsCount} alerts.`;
+      
   } catch (e) {
-    console.error('Reports:', e);
-    throw e;
+    console.error('Reports Load Error:', e);
+    document.getElementById('reportCards').innerHTML = `<p style="color:#ef5b67;padding:20px;">Failed to load report data. Check console for details.</p>`;
+    document.getElementById('reportSummary').textContent = `Error: ${e.message}`;
   }
 }
 
@@ -1441,20 +1544,47 @@ modal.addEventListener('click', e => { if (e.target === modal) closeExpenseModal
 
 document.getElementById('expenseDesc').addEventListener('input', async (e) => {
   const desc = e.target.value.trim();
+  const el = document.getElementById('classificationPreview');
+  
   if (desc.length < 3) {
-    document.getElementById('classificationPreview').style.display = 'none';
+    el.style.display = 'none';
     return;
   }
+  
   clearTimeout(window._classifyTimer);
   window._classifyTimer = setTimeout(async () => {
     try {
       const r = await api('/expenses/classify', { method: 'POST', body: { description: desc } });
-      const el = document.getElementById('classificationPreview');
-      el.innerHTML = `<b>✦ AI suggests: ${escapeHtml(r.category)}</b> (${Math.round(r.confidence * 100)}% confidence)`;
+      
+      // ⭐ USER-FRIENDLY XAI HTML
+      el.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <b>✦ AI suggests: ${escapeHtml(r.category)}</b> 
+            <span style="font-size:9px; opacity:0.8">(${Math.round(r.confidence * 100)}% confident)</span>
+          </div>
+          <button type="button" class="text-btn" onclick="toggleXaiTooltip()" style="font-size:9px; text-decoration:underline;">Why?</button>
+        </div>
+        <div id="xaiTooltip" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed #d0c8ff; font-size:10px; color:#555;">
+          <p style="margin:0 0 5px 0;">The AI model picked this because it recognized these keywords:</p>
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">
+            ${r.keywords.map(k => `<span style="background:#635bff; color:#fff; padding:2px 6px; border-radius:4px; font-weight:600;">${escapeHtml(k)}</span>`).join('')}
+          </div>
+        </div>
+      `;
       el.style.display = 'block';
     } catch (e) {}
   }, 500);
 });
+
+// Helper function to toggle tooltip
+function toggleXaiTooltip() {
+  const tooltip = document.getElementById('xaiTooltip');
+  if (tooltip) {
+    tooltip.style.display = tooltip.style.display === 'none' ? 'block' : 'none';
+  }
+}
+window.toggleXaiTooltip = toggleXaiTooltip;
 
 document.getElementById('expenseAmount')?.addEventListener('input', updateParticipantSummary);
 

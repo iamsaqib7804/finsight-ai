@@ -748,3 +748,25 @@ td small{color:#a0a6b0}
   color: #fff;
   transform: scale(1.1);
 }
+/* INDIVIDUAL vs GROUP TAGS */
+.group-tag {
+  background: #e8f2ff;
+  color: #3988e8;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.personal-tag {
+  background: #f0f1f5;
+  color: #697282;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-block;
+}

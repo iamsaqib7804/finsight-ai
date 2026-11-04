@@ -1,5 +1,5 @@
 from datetime import datetime
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from db import query_all, query_one
 from ml import predictor
@@ -21,8 +21,10 @@ def _hydrate_expense(e):
 @dashboard_bp.route('/', methods=['GET'])
 @login_required
 def summary():
-    month = datetime.now().strftime('%Y-%m')
+    # ⭐ CHANGED: Accept month parameter from request, default to current month
+    month = request.args.get('month') or datetime.now().strftime('%Y-%m')
     year, m = map(int, month.split('-'))
+    
     group_ids = _get_user_group_ids(current_user.id)
     if group_ids:
         placeholders = ','.join(['%s'] * len(group_ids))
@@ -38,6 +40,7 @@ def summary():
             WHERE YEAR(e.date) = %s AND MONTH(e.date) = %s AND e.paid_by_id = %s AND e.group_id IS NULL
             ORDER BY e.date DESC"""
         params = [year, m, current_user.id]
+        
     expense_rows = query_all(sql, tuple(params))
     expenses = [_hydrate_expense(e) for e in expense_rows]
 
