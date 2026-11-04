@@ -59,12 +59,33 @@
           <h1 id="pageTitle">Good morning 👋</h1>
         </div>
         <div class="top-actions">
-          <select class="month-select" id="monthDropdown" onchange="changeDashboardMonth(this.value)" style="appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer;">
-    <option value="">Loading...</option>
-</select>
+          <!-- Dashboard Month Dropdown -->
+          <select class="month-select" id="monthDropdown" onchange="changeDashboardMonth(this.value)" style="appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; display: none;">
+              <option value="">Loading...</option>
+          </select>
+          
+          <!-- Live Sync Icon -->
           <button class="icon-btn" title="Live sync indicator" id="liveBtn">
             <span id="liveIcon">◉</span>
           </button>
+
+          <div style="position:relative;">
+  <button class="icon-btn" title="Notifications" id="notifBtn" onclick="toggleNotifications()">
+    🔔<i id="notifDot" style="display:none; background:#ef5b67; border-radius:50%; width:8px; height:8px; position:absolute; top:8px; right:8px;"></i>
+  </button>
+  
+  <!-- Notification Dropdown -->
+  <div id="notifDropdown" style="display:none; position:absolute; top:50px; right:0; width:320px; background:#fff; border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.15); border:1px solid #e9ebf0; z-index:1000; max-height:400px; overflow-y:auto;">
+    <div style="padding:16px; border-bottom:1px solid #f0f1f4; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#fff; z-index:1;">
+      <b style="font-size:13px;">Notifications</b>
+      <button class="text-btn" onclick="clearNotifications()" style="font-size:10px;">Clear</button>
+    </div>
+    <div id="notifList" style="padding:8px;">
+      <p style="font-size:11px; color:#999; text-align:center; padding:20px;">No new notifications</p>
+    </div>
+  </div>
+</div>
+
           <button class="primary-btn" id="quickAddBtn">+ Add expense</button>
         </div>
       </header>
@@ -97,21 +118,20 @@
               </div>
               <span class="confidence" id="dashConfidence">0% confidence</span>
             </div>
-            <!-- Purana code -->
-<p id="dashPredictionText" style="font-size:11px;color:#677080;line-height:1.6;margin:17px 0;"></p>
+            <p id="dashPredictionText" style="font-size:11px;color:#677080;line-height:1.6;margin:17px 0;"></p>
 
-<!-- ⭐ NAYA CODE: Add this below it -->
-<div style="margin-bottom: 12px;">
-    <button class="text-btn" onclick="document.getElementById('predExplanation').style.display='block'" style="font-size:10px; display:flex; align-items:center; gap:4px;">
-        <span>💡</span> How did AI predict this?
-    </button>
-    <div id="predExplanation" style="display:none; margin-top:8px; padding:10px; background:#faf9ff; border:1px solid #eceaff; border-radius:8px; font-size:10px; color:#555; line-height:1.5;">
-        <b>AI Forecasting Logic:</b><br>
-        The model looks at your spending over the last 6 months. It uses a <b>Weighted Moving Average (WMA)</b>, which gives more importance to recent months, combined with a <b>Linear Trend</b>. If your spending is consistently going up, the prediction adjusts higher. 
-        <br><br>
-        <i>Note: This is an estimate based on historical data, not a guarantee.</i>
-    </div>
-</div>
+            <div style="margin-bottom: 12px;">
+                <button class="text-btn" onclick="document.getElementById('predExplanation').style.display='block'" style="font-size:10px; display:flex; align-items:center; gap:4px;">
+                    <span>💡</span> How did AI predict this?
+                </button>
+                <div id="predExplanation" style="display:none; margin-top:8px; padding:10px; background:#faf9ff; border:1px solid #eceaff; border-radius:8px; font-size:10px; color:#555; line-height:1.5;">
+                    <b>AI Forecasting Logic:</b><br>
+                    The model looks at your spending over the last 6 months. It uses a <b>Weighted Moving Average (WMA)</b>, which gives more importance to recent months, combined with a <b>Linear Trend</b>. If your spending is consistently going up, the prediction adjusts higher. 
+                    <br><br>
+                    <i>Note: This is an estimate based on historical data, not a guarantee.</i>
+                </div>
+            </div>
+            
             <div class="prediction-bar"><span id="dashPredBar" style="width:0%"></span><b id="dashPredBarLabel">₹0</b></div>
             <button class="text-btn" data-page="insights">View prediction details →</button>
           </div>
@@ -195,7 +215,7 @@
               <tr><th>Transaction</th><th>Date</th><th>Category</th><th>Type</th><th>Source</th><th>Amount</th><th>AI confidence</th><th></th></tr>
             </thead>
             <tbody id="transactionTable">
-              <tr><td colspan="7" style="text-align:center;padding:30px;color:#999">Loading...</td></tr>
+              <tr><td colspan="8" style="text-align:center;padding:30px;color:#999">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -276,8 +296,14 @@
               <p>Type a description below — the model will predict the category.</p>
               <input id="testClassifyInput" placeholder="e.g. Swiggy dinner order"
                 style="width:100%;margin-top:8px;padding:9px;border:1px solid #e9ebf0;border-radius:9px;font:inherit;font-size:11px;outline:none">
-              <button class="text-btn" id="testClassifyBtn" style="margin-top:8px">Classify →</button>
+              
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="text-btn" id="testClassifyBtn">Classify →</button>
+                <button class="text-btn" id="testShapBtn" onclick="testShapExplanation()" style="color:#20a779;">✨ Explain with SHAP</button>
+              </div>
+
               <div id="classifyResult" style="margin-top:8px"></div>
+              <div id="shapResult"></div>
             </div>
           </div>
           <div class="panel">
@@ -304,7 +330,19 @@
 
       <!-- REPORTS -->
       <section id="reports" class="page">
-        <div class="page-toolbar"><div><h2>Reports</h2><p>Monthly financial overview and category trends.</p></div></div>
+        <div class="page-toolbar">
+          <div>
+            <h2>Reports</h2>
+            <p>Monthly financial overview and category trends.</p>
+          </div>
+          <div style="display:flex; gap:8px;">
+              <!-- ⭐ Month Dropdown for Reports -->
+              <select id="reportMonthDropdown" class="month-select" onchange="changeReportMonth(this.value)" style="appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer;">
+                  <option value="">Loading...</option>
+              </select>
+              <button class="secondary-btn">Download</button>
+          </div>
+        </div>
         <div class="report-cards" id="reportCards"><div class="report-card"><span>Monthly spend</span><b>₹0</b><small>Loading</small></div></div>
         <div class="panel report-summary" style="margin-top:16px">
           <h3>Monthly summary</h3>
@@ -327,107 +365,105 @@
   </div>
 
   <!-- EXPENSE MODAL -->
-  <!-- ============ EXPENSE MODAL ============ -->
-<div class="modal" id="expenseModal">
-  <div class="modal-card" style="width:min(520px,95vw)">
-    <button class="close" id="closeModal">×</button>
-    <h2>Add expense</h2>
-    <p>Enter transaction details — AI will classify it.</p>
+  <div class="modal" id="expenseModal">
+    <div class="modal-card" style="width:min(520px,95vw)">
+      <button class="close" id="closeModal">×</button>
+      <h2>Add expense</h2>
+      <p>Enter transaction details — AI will classify it.</p>
 
-    <label>Description
-      <input id="expenseDesc" placeholder="e.g. Swiggy dinner">
-    </label>
-
-    <div class="two-col">
-      <label>Amount
-        <input id="expenseAmount" type="number" placeholder="₹">
+      <label>Description
+        <input id="expenseDesc" placeholder="e.g. Swiggy dinner">
       </label>
-      <label>Source
-        <select id="expenseSource">
-          <option>UPI</option>
-          <option>Card</option>
-          <option>Cash</option>
-          <option>Online</option>
+
+      <div class="two-col">
+        <label>Amount
+          <input id="expenseAmount" type="number" placeholder="₹">
+        </label>
+        <label>Source
+          <select id="expenseSource">
+            <option>UPI</option>
+            <option>Card</option>
+            <option>Cash</option>
+            <option>Online</option>
+          </select>
+        </label>
+      </div>
+
+      <label>Group
+        <select id="expenseGroup" onchange="onExpenseGroupChange()">
+          <option value="">Personal (no group)</option>
         </select>
       </label>
-    </div>
 
-    <label>Group
-      <select id="expenseGroup" onchange="onExpenseGroupChange()">
-        <option value="">Personal (no group)</option>
-      </select>
-    </label>
-
-    <!-- ⭐ Participant selector — shown when group selected -->
-    <div id="participantSection" style="display:none;margin-top:14px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <label style="margin:0">Who's involved?</label>
-        <div style="display:flex;gap:6px">
-          <button type="button" class="gd-btn-small" onclick="selectAllParticipants()">Select all</button>
-          <button type="button" class="gd-btn-small" onclick="clearAllParticipants()">Clear</button>
+      <!-- Participant selector -->
+      <div id="participantSection" style="display:none;margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label style="margin:0">Who's involved?</label>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="gd-btn-small" onclick="selectAllParticipants()">Select all</button>
+            <button type="button" class="gd-btn-small" onclick="clearAllParticipants()">Clear</button>
+          </div>
+        </div>
+        <div id="participantList" class="participant-list"></div>
+        <div style="margin-top:10px;font-size:11px;color:#8b929d" id="participantSummary">
+          Select at least 1 participant
         </div>
       </div>
-      <div id="participantList" class="participant-list"></div>
-      <div style="margin-top:10px;font-size:11px;color:#8b929d" id="participantSummary">
-        Select at least 1 participant
-      </div>
+
+      <label>Category
+        <select id="expenseCategory">
+          <option>Auto-classify with AI</option>
+          <option>Food</option>
+          <option>Travel</option>
+          <option>Shopping</option>
+          <option>Bills</option>
+          <option>Entertainment</option>
+          <option>Other</option>
+        </select>
+      </label>
+
+      <div id="classificationPreview" style="display:none;margin-top:8px;padding:9px;background:#faf9ff;border-radius:9px;font-size:10px;color:#665bff"></div>
+
+      <button class="primary-btn full" id="saveExpense">Save expense</button>
     </div>
-
-    <label>Category
-      <select id="expenseCategory">
-        <option>Auto-classify with AI</option>
-        <option>Food</option>
-        <option>Travel</option>
-        <option>Shopping</option>
-        <option>Bills</option>
-        <option>Entertainment</option>
-        <option>Other</option>
-      </select>
-    </label>
-
-    <div id="classificationPreview" style="display:none;margin-top:8px;padding:9px;background:#faf9ff;border-radius:9px;font-size:10px;color:#665bff"></div>
-
-    <button class="primary-btn full" id="saveExpense">Save expense</button>
   </div>
-</div>
 
   <!-- GROUP MODAL -->
-  <!-- ============ GROUP MODAL ============ -->
-<div class="modal" id="groupModal">
-  <div class="modal-card">
-    <button class="close" id="closeGroupModal">×</button>
-    <h2 id="groupModalTitle">Create group</h2>
-    <p id="groupModalSubtitle">Create a group to split expenses.</p>
+  <div class="modal" id="groupModal">
+    <div class="modal-card">
+      <button class="close" id="closeGroupModal">×</button>
+      <h2 id="groupModalTitle">Create group</h2>
+      <p id="groupModalSubtitle">Create a group to split expenses.</p>
 
-    <label>Group name
-      <input id="groupName" placeholder="e.g. Goa Trip 2027">
-    </label>
+      <label>Group name
+        <input id="groupName" placeholder="e.g. Goa Trip 2027">
+      </label>
 
-    <label>Description (optional)
-      <input id="groupDesc" placeholder="Short description">
-    </label>
+      <label>Description (optional)
+        <input id="groupDesc" placeholder="Short description">
+      </label>
 
-    <!-- Add member section — only for existing groups -->
-    <div id="groupAddMemberSection" style="display:none;margin-top:16px">
-      <div style="padding:12px;background:#fafbfc;border-radius:12px">
-        <b style="font-size:11px;display:block;margin-bottom:8px">➕ Add members</b>
-        <div style="display:flex;gap:6px">
-          <input id="addMemberEmail" placeholder="friend@example.com"
-                 style="flex:1;padding:9px;border:1px solid #e9ebf0;border-radius:9px;font-size:11px;outline:none">
-          <button type="button" class="primary-btn" onclick="addMemberToGroup()">Add</button>
+      <div id="groupAddMemberSection" style="display:none;margin-top:16px">
+        <div style="padding:12px;background:#fafbfc;border-radius:12px">
+          <b style="font-size:11px;display:block;margin-bottom:8px">➕ Add members</b>
+          <div style="display:flex;gap:6px">
+            <input id="addMemberEmail" placeholder="friend@example.com"
+                   style="flex:1;padding:9px;border:1px solid #e9ebf0;border-radius:9px;font-size:11px;outline:none">
+            <button type="button" class="primary-btn" onclick="addMemberToGroup()">Add</button>
+          </div>
+          <div id="addMemberStatus" style="margin-top:8px;font-size:10px"></div>
         </div>
-        <div id="addMemberStatus" style="margin-top:8px;font-size:10px"></div>
+
+        <div style="margin-top:14px">
+          <b style="font-size:11px;display:block;margin-bottom:8px">Current members</b>
+          <div id="groupMemberList"></div>
+        </div>
       </div>
 
-      <div style="margin-top:14px">
-        <b style="font-size:11px;display:block;margin-bottom:8px">Current members</b>
-        <div id="groupMemberList"></div>
-      </div>
+      <button class="primary-btn full" id="saveGroup">Create group</button>
     </div>
-
-    <button class="primary-btn full" id="saveGroup">Create group</button>
   </div>
-</div>
+
   <!-- BUDGET MODAL -->
   <div class="modal" id="budgetModal">
     <div class="modal-card">

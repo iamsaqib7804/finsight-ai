@@ -12,6 +12,8 @@ from utils.settlement_calc import calculate_group_balances, simplify_debts
 from sockets.events import emit_to_group
 from db import query_one, query_all, execute
 from config import Config
+from models.group import get_user_groups
+from db import query_all
 
 groups_bp = Blueprint('groups', __name__)
 
@@ -107,3 +109,59 @@ def delete(gid):
         return jsonify({'error': 'Only admin can delete'}), 403
     delete_group(gid)
     return jsonify({'message': 'Deleted'})
+
+@groups_bp.route('/notifications', methods=['GET'])
+@login_required
+def get_notifications():
+    """Fetch recent activities from all groups the user is a member of."""
+    groups = get_user_groups(current_user.id)
+    if not groups:
+        return jsonify({'notifications': [], 'unread_count': 0})
+    
+    group_ids = [g['id'] for g in groups]
+    placeholders = ','.join(['%s'] * len(group_ids))
+    
+    # ⭐ Fetch recent activities from these groups
+    sql = f"""
+        SELECT ga.*, u.name AS user_name, u.avatar_initials, g.name AS group_name
+        FROM group_activities ga
+        JOIN users u ON ga.user_id = u.id
+        JOIN groups_table g ON ga.group_id = g.id
+        WHERE ga.group_id IN ({placeholders})
+        AND ga.user_id != %s  -- Don't show user their own actions
+        ORDER BY ga.created_at DESC
+        LIMIT 20
+    """
+    params = group_ids + [current_user.id]
+    
+    rows = query_all(sql, tuple(params))
+    
+    # Format the activities
+    import json
+    from datetime import datetime
+    now = datetime.now()
+    notifications = []
+    
+    for r in rows:
+        delta = now - r['created_at']
+        if delta.days > 0: time_ago = f"{delta.days}d ago"
+        elif delta.seconds > 3600: time_ago = f"{delta.seconds // 3600}h ago"
+        elif delta.seconds > 60: time_ago = f"{delta.seconds // 60}m ago"
+        else: time_ago = "Just now"
+        
+        try:
+            meta = json.loads(r['meta']) if r['meta'] else {}
+        except:
+            meta = {}
+            
+        notifications.append({
+            'id': r['id'],
+            'user': r['user_name'],
+            'avatar': r['avatar_initials'] or 'U',
+            'action': r['action'],
+            'meta': meta,
+            'group_name': r['group_name'],
+            'time_ago': time_ago
+        })
+
+    return jsonify({'notifications': notifications, 'unread_count': len(notifications)})

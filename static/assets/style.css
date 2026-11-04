@@ -770,3 +770,16 @@ td small{color:#a0a6b0}
   white-space: nowrap;
   display: inline-block;
 }
+.notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  transition: 0.15s;
+  margin-bottom: 4px;
+}
+.notif-item:hover { background: #fafbfc; }
+.notif-item .gd-avatar { width: 32px; height: 32px; font-size: 11px; flex-shrink: 0; }
+.notif-text { font-size: 11px; color: #4a5160; line-height: 1.4; }
+.notif-text b { color: #18202b; }
+.notif-time { font-size: 9px; color: #a0a6b1; margin-top: 3px; }

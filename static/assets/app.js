@@ -1749,6 +1749,7 @@ function initPolling() {
     if (!active) return;
 
     try {
+      await loadNotifications(true); 
       if (active === 'dashboard') await loadDashboard();
       else if (active === 'transactions') await loadTransactions();
       else if (active === 'settlements') await loadSettlements();
@@ -1779,7 +1780,112 @@ function initPolling() {
   });
   window.addEventListener('focus', pollActivePage);
 }
+// ============================================================
+// ⭐ NOTIFICATIONS SYSTEM
+// ============================================================
+let lastSeenNotifId = localStorage.getItem('lastSeenNotifId') || 0;
 
+async function loadNotifications(showToastForNew = false) {
+  try {
+    const data = await api('/groups/notifications');
+    const notifs = data.notifications || [];
+    
+    if (notifs.length === 0) {
+        document.getElementById('notifDot').style.display = 'none';
+        return;
+    }
+
+    // Check karo ki koi nayi notification aayi hai kya?
+    const latestId = notifs[0].id;
+    const hasUnread = latestId > parseInt(lastSeenNotifId);
+
+    // Red dot update karo
+    const dot = document.getElementById('notifDot');
+    if (dot) dot.style.display = hasUnread ? 'block' : 'none';
+
+    // Agar background polling hai aur nayi notification aayi hai, toh toast dikhao
+    if (showToastForNew && hasUnread) {
+        const newNotif = notifs[0]; 
+        const msg = formatNotificationText(newNotif);
+        showToast(`🔔 ${newNotif.user}: ${msg}`, 'info');
+    }
+
+    // Dropdown list render karo
+    const listEl = document.getElementById('notifList');
+    listEl.innerHTML = notifs.map(n => `
+      <div class="notif-item">
+        <div class="gd-avatar">${escapeHtml(n.avatar)}</div>
+        <div>
+          <div class="notif-text"><b>${escapeHtml(n.user)}</b> ${formatNotificationText(n)}</div>
+          <div class="notif-time">${escapeHtml(n.group_name)} · ${escapeHtml(n.time_ago)}</div>
+        </div>
+      </div>
+    `).join('');
+
+  } catch (e) {
+    console.error('Notifications load failed:', e);
+  }
+}
+
+function formatNotificationText(n) {
+    const meta = n.meta || {};
+    switch(n.action) {
+        case 'expense_added': return `added <b>${escapeHtml(meta.description || 'an expense')}</b> (${money(meta.amount || 0)})`;
+        case 'settlement_completed': return `completed a settlement of <b>${money(meta.amount || 0)}</b>`;
+        case 'settlement_initiated': return `initiated a settlement of <b>${money(meta.amount || 0)}</b>`;
+        case 'comment_added': return `commented on an expense`;
+        case 'member_added': return `added <b>${escapeHtml(meta.member_name || 'a member')}</b> to the group`;
+        case 'receipt_uploaded': return `uploaded a receipt`;
+        case 'group_created': return `created the group`;
+        default: return `did an activity`;
+    }
+}
+
+function toggleNotifications() {
+    const dd = document.getElementById('notifDropdown');
+    if (dd) {
+        // Dropdown open karo
+        dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        
+        // ⭐ JAB USER DROPDOWN KHOLE, TOH RED DOT HATA DO AUR SAVE KAR LO
+        if (dd.style.display === 'block') {
+            document.getElementById('notifDot').style.display = 'none';
+            
+            // Current latest ID localStorage mein save karo
+            api('/groups/notifications').then(data => {
+                if (data.notifications && data.notifications.length > 0) {
+                    const latestId = data.notifications[0].id;
+                    localStorage.setItem('lastSeenNotifId', latestId);
+                    lastSeenNotifId = latestId;
+                }
+            }).catch(e => {});
+        }
+    }
+}
+window.toggleNotifications = toggleNotifications;
+
+function clearNotifications() {
+    document.getElementById('notifList').innerHTML = '<p style="font-size:11px; color:#999; text-align:center; padding:20px;">No new notifications</p>';
+    document.getElementById('notifDot').style.display = 'none';
+    
+    // Clear karne pe latest ID save kar lo taaki dot wapas na aaye
+    api('/groups/notifications').then(data => {
+        if (data.notifications && data.notifications.length > 0) {
+            const latestId = data.notifications[0].id;
+            localStorage.setItem('lastSeenNotifId', latestId);
+            lastSeenNotifId = latestId;
+        }
+    }).catch(e => {});
+}
+window.clearNotifications = clearNotifications;
+// Dropdown ke bahar click karne pe band karo
+document.addEventListener('click', function(event) {
+    const dd = document.getElementById('notifDropdown');
+    const btn = document.getElementById('notifBtn');
+    if (dd && dd.style.display === 'block' && !dd.contains(event.target) && !btn.contains(event.target)) {
+        dd.style.display = 'none';
+    }
+});
 // ============================================================
 // INIT
 // ============================================================
@@ -1796,6 +1902,7 @@ function initPolling() {
 
     initPolling();
     loadDashboard().catch(() => {});
+    loadNotifications(false); 
     console.log('✅ FinSight AI ready');
   } catch (e) {
     window.location.href = '/api/auth/login-page';
