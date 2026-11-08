@@ -7,4 +7,5 @@ if __name__ == '__main__':
     print("🔧 Initializing database...")
     init_db()
     print("🚀 Starting FinSight AI on http://localhost:5000")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    # ⭐ Debug mode off
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False)

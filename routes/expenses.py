@@ -13,7 +13,9 @@ from sockets.events import emit_to_group
 from db import query_all, query_one, execute
 from app import limiter
 from config import Config
+import logging
 
+logger = logging.getLogger(__name__)
 expenses_bp = Blueprint('expenses', __name__)
 
 def _get_user_group_ids(user_id):
@@ -84,7 +86,15 @@ def create():
         member = query_one("SELECT id FROM group_members WHERE group_id = %s AND user_id = %s", (group_id, current_user.id))
         if not member:
             return jsonify({'error': 'Not a member of this group'}), 403
-            
+        
+        # ⭐ Validate participants are actually in the group
+        participants = data.get('participants', [])
+        if participants:
+            placeholders = ','.join(['%s'] * len(participants))
+            valid_members = query_all(f"SELECT user_id FROM group_members WHERE group_id = %s AND user_id IN ({placeholders})", tuple([group_id] + participants))
+            if len(valid_members) != len(set(participants)):
+                return jsonify({'error': 'Invalid participants in this group'}), 400
+
     splits = _build_splits(amount, data, group_id)
     if splits is None:
         return jsonify({'error': 'Invalid split configuration'}), 400
@@ -113,7 +123,6 @@ def create():
 
 def _build_splits(total_amount, data, group_id):
     split_type = data.get('split_type', 'equal')
-    
     participants = list(data.get('participants') or [])
     if not participants:
         participants = [current_user.id]
@@ -129,37 +138,22 @@ def _build_splits(total_amount, data, group_id):
             else:
                 amt = share
                 allocated += share
-            splits.append({
-                'user_id': uid, 
-                'amount': amt, 
-                'percentage': round(100 / len(participants), 2)
-            })
+            splits.append({'user_id': uid, 'amount': amt, 'percentage': round(100 / len(participants), 2)})
     elif split_type == 'percentage':
         percentages = data.get('percentages') or {}
         total_pct = sum(float(p) for p in percentages.values())
         if abs(total_pct - 100) > 0.5:
             return None
         for uid_str, pct in percentages.items():
-            uid = int(uid_str)
-            pct = float(pct)
-            splits.append({
-                'user_id': uid, 
-                'amount': round(total_amount * pct / 100, 2), 
-                'percentage': pct
-            })
+            splits.append({'user_id': int(uid_str), 'amount': round(total_amount * float(pct) / 100, 2), 'percentage': float(pct)})
     elif split_type == 'custom':
         amounts = data.get('custom_amounts') or {}
         total_custom = sum(float(a) for a in amounts.values())
         if abs(total_custom - total_amount) > 0.5:
             return None
         for uid_str, amt in amounts.items():
-            uid = int(uid_str)
             amt = float(amt)
-            splits.append({
-                'user_id': uid, 
-                'amount': amt, 
-                'percentage': round(amt / total_amount * 100, 2)
-            })
+            splits.append({'user_id': int(uid_str), 'amount': amt, 'percentage': round(amt / total_amount * 100, 2)})
     else:
         return None
     return splits
@@ -183,16 +177,11 @@ def classify_preview():
     desc = (data.get('description') or '')[:255]
     return jsonify(classifier.get_explanation(desc, data.get('merchant', '')))
 
-# ============================================================
-# ⭐ RECEIPT UPLOAD (ADD THIS TO THE END OF FILE)
-# ============================================================
-
 @expenses_bp.route('/<int:expense_id>/receipt', methods=['POST'])
 @login_required
 @limiter.limit(Config.RATELIMIT_UPLOAD)
 def upload_receipt(expense_id):
-    import os
-    import uuid
+    import os, uuid
     from PIL import Image
 
     row = query_one("SELECT paid_by_id, group_id FROM expenses WHERE id = %s", (expense_id,))
@@ -201,11 +190,9 @@ def upload_receipt(expense_id):
 
     if 'receipt' not in request.files:
         return jsonify({'error': 'No file'}), 400
-
     file = request.files['receipt']
     if not file.filename:
         return jsonify({'error': 'Empty filename'}), 400
-
     ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
     if ext not in Config.ALLOWED_EXTENSIONS:
         return jsonify({'error': f'Only {", ".join(Config.ALLOWED_EXTENSIONS)}'}), 400
@@ -230,7 +217,6 @@ def upload_receipt(expense_id):
 
     receipt_dir = os.path.join('static', 'receipts')
     os.makedirs(receipt_dir, exist_ok=True)
-
     filename = f"{uuid.uuid4().hex[:12]}_{expense_id}.{ext}"
     filepath = os.path.join(receipt_dir, filename)
     with open(filepath, 'wb') as f:
@@ -248,16 +234,10 @@ def upload_receipt(expense_id):
 
     return jsonify({'message': 'Uploaded', 'receipt_path': relative_path, 'has_receipt': True}), 201
 
-
 @expenses_bp.route('/<int:expense_id>/receipt', methods=['GET'])
 @login_required
 def get_receipt(expense_id):
-    row = query_one(
-        """SELECT e.receipt_path, e.receipt_uploaded_at, e.group_id,
-                  e.paid_by_id, e.description, e.merchant
-           FROM expenses e WHERE e.id = %s""",
-        (expense_id,)
-    )
+    row = query_one("SELECT e.receipt_path, e.receipt_uploaded_at, e.group_id, e.paid_by_id, e.description, e.merchant FROM expenses e WHERE e.id = %s", (expense_id,))
     if not row:
         return jsonify({'error': 'Not found'}), 404
 
@@ -265,7 +245,6 @@ def get_receipt(expense_id):
     if not has_access and row['group_id']:
         member = query_one("SELECT id FROM group_members WHERE group_id = %s AND user_id = %s", (row['group_id'], current_user.id))
         has_access = member is not None
-
     if not has_access:
         return jsonify({'error': 'Access denied'}), 403
 
@@ -278,12 +257,10 @@ def get_receipt(expense_id):
         'merchant': row['merchant'],
     })
 
-
 @expenses_bp.route('/<int:expense_id>/receipt', methods=['DELETE'])
 @login_required
 def delete_receipt(expense_id):
     import os
-
     row = query_one("SELECT paid_by_id, receipt_path FROM expenses WHERE id = %s", (expense_id,))
     if not row or row['paid_by_id'] != current_user.id:
         return jsonify({'error': 'Unauthorized'}), 403
@@ -297,4 +274,26 @@ def delete_receipt(expense_id):
             pass
 
     execute("UPDATE expenses SET receipt_path = NULL, receipt_uploaded_at = NULL WHERE id = %s", (expense_id,))
+    return jsonify({'message': 'Deleted'})
+
+@expenses_bp.route('/comments/<int:cid>', methods=['DELETE'])
+@login_required
+def remove_comment(cid):
+    # ⭐ Check if user owns the comment OR is in the group
+    row = query_one("SELECT user_id, expense_id FROM expense_comments WHERE id = %s", (cid,))
+    if not row:
+        return jsonify({'error': 'Not found'}), 404
+        
+    if row['user_id'] != current_user.id:
+        # Agar owner nahi hai, toh check karo ki expense uske kisi group ka hai kya
+        expense = query_one("SELECT group_id FROM expenses WHERE id = %s", (row['expense_id'],))
+        if expense and expense['group_id']:
+            member = query_one("SELECT id FROM group_members WHERE group_id = %s AND user_id = %s", (expense['group_id'], current_user.id))
+            if not member:
+                return jsonify({'error': 'Unauthorized'}), 403
+        else:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    if not delete_comment(cid, current_user.id):
+        return jsonify({'error': 'Failed'}), 500
     return jsonify({'message': 'Deleted'})

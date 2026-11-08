@@ -33,8 +33,16 @@ function escapeHtml(s) {
 // HTTP Helper
 // ============================================================
 async function api(path, opts = {}) {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  const csrfToken = meta ? meta.content : '';
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (opts.method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(opts.method.toUpperCase())) {
+      headers['X-CSRFToken'] = csrfToken;
+  }
+
   const res = await fetch(API + path, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: headers,
     credentials: 'same-origin',
     cache: 'no-store',
     ...opts,
