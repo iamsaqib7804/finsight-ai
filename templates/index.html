@@ -27,7 +27,9 @@
         <button class="nav-item" data-page="transactions"><span>↔</span> Transactions</button>
         <button class="nav-item" data-page="groups"><span>◈</span> Groups</button>
         <button class="nav-item" data-page="budgets"><span>◫</span> Budgets</button>
+	<button class="nav-item" data-page="savings"><span>◎</span> Savings Goals</button>
         <button class="nav-item" data-page="insights"><span>✦</span> ML Insights</button>
+        <button class="nav-item" data-page="ai-assistant"><span>✧</span> AI Assistant</button>
         <button class="nav-item" data-page="settlements"><span>⇄</span> Settlements</button>
         <button class="nav-item" data-page="reports"><span>▥</span> Reports</button>
       </nav>
@@ -280,6 +282,21 @@
         </div>
       </section>
 
+<!-- SAVINGS GOALS -->
+      <section id="savings" class="page">
+        <div class="page-toolbar">
+          <div>
+            <h2>Savings Goals</h2>
+            <p>Create goals, track your progress, and manage your contributions.</p>
+          </div>
+          <button class="primary-btn" id="createSavingsGoalBtn">+ Create goal</button>
+        </div>
+
+        <div class="budget-grid" id="savingsGoalsGrid">
+          <p style="font-size:11px;color:#999;padding:20px">Loading savings goals...</p>
+        </div>
+      </section>
+
       <!-- ML INSIGHTS -->
       <section id="insights" class="page">
         <div class="page-toolbar">
@@ -347,6 +364,87 @@
         <div class="panel report-summary" style="margin-top:16px">
           <h3>Monthly summary</h3>
           <p id="reportSummary">Loading...</p>
+        </div>
+      </section>
+
+      <!-- AI FINANCIAL ASSISTANT -->
+      <section id="ai-assistant" class="page">
+        <div class="page-toolbar">
+          <div>
+            <h2>FinSight AI Assistant</h2>
+            <p>Your personal assistant for smarter budgeting and savings.</p>
+          </div>
+        </div>
+
+        <div class="ai-chat-layout">
+
+          <!-- Assistant header -->
+          <div class="ai-chat-header">
+            <div class="ai-chat-avatar">✦</div>
+            <div>
+              <h3>FinSight Financial AI</h3>
+              <p><span class="ai-status-dot"></span> Ready to help with your finances</p>
+            </div>
+          </div>
+
+          <!-- Suggested questions -->
+          <div class="ai-suggestions">
+            <p>Try asking:</p>
+            <div class="ai-suggestion-list">
+              <button type="button" class="ai-suggestion"
+                data-question="Analyze my current month's spending.">
+                Analyze my spending
+              </button>
+              <button type="button" class="ai-suggestion"
+                data-question="How can I save more money every month?">
+                How can I save more?
+              </button>
+              <button type="button" class="ai-suggestion"
+                data-question="Show my savings goals and progress.">
+                Check my savings goals
+              </button>
+              <button type="button" class="ai-suggestion"
+                data-question="Create a monthly budget based on my financial data.">
+                Create my monthly budget
+              </button>
+            </div>
+          </div>
+
+          <!-- Chat messages -->
+          <div id="aiChatMessages" class="ai-chat-messages"
+               aria-live="polite" aria-label="Conversation">
+            <div class="ai-message assistant-message">
+              <div class="ai-message-avatar">✦</div>
+              <div class="ai-message-content">
+                <strong>FinSight AI</strong>
+                <p>Hello! I'm your personal financial assistant.</p>
+                <p>I can analyze your expenses, review your savings goals,
+                   and recommend a monthly budget using your financial data.</p>
+                <p>What would you like to know today?</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loading indicator -->
+          <div id="aiChatLoading" class="ai-chat-loading" hidden>
+            <span></span><span></span><span></span>
+            <small>FinSight AI is thinking...</small>
+          </div>
+
+          <!-- Chat input -->
+          <form id="aiChatForm" class="ai-chat-form">
+            <textarea id="aiChatInput"
+              placeholder="Ask about your expenses, savings or budget..."
+              rows="1" maxlength="2000" required></textarea>
+            <button type="submit" id="aiChatSendBtn"
+              class="primary-btn">Send ➤</button>
+          </form>
+
+          <p class="ai-chat-disclaimer">
+            AI-generated financial guidance. Review recommendations before
+            making financial decisions.
+          </p>
+
         </div>
       </section>
 
@@ -476,6 +574,66 @@
       </select></label>
       <label>Monthly limit<input id="budgetLimit" type="number" placeholder="10000"></label>
       <button class="primary-btn full" id="saveBudget">Save budget</button>
+    </div>
+  </div>
+
+  <!-- SAVINGS GOAL MODAL -->
+  <div class="modal" id="savingsGoalModal">
+    <div class="modal-card">
+      <button class="close" id="closeSavingsGoalModal" type="button">×</button>
+
+      <h2 id="savingsGoalModalTitle">Create savings goal</h2>
+      <p>Set your own savings target and deadline.</p>
+
+      <form id="savingsGoalForm">
+        <label>Goal name
+          <input id="savingsGoalName" type="text"
+                 placeholder="e.g. Buy New Laptop" maxlength="100" required>
+        </label>
+
+        <label>Target amount (₹)
+          <input id="savingsGoalTarget" type="number"
+                 placeholder="70000" min="0.01" step="0.01" required>
+        </label>
+
+        <label>Target date
+          <input id="savingsGoalDate" type="date" required>
+        </label>
+
+        <label>Notes (optional)
+          <input id="savingsGoalNotes" type="text"
+                 placeholder="Additional details">
+        </label>
+
+        <button class="primary-btn full" id="saveSavingsGoalBtn" type="submit">
+          Save goal
+        </button>
+      </form>
+    </div>
+  </div>
+  <!-- SAVINGS CONTRIBUTION MODAL -->
+  <div class="modal" id="contributionModal">
+    <div class="modal-card">
+      <button class="close" id="closeContributionModal" type="button">×</button>
+
+      <h2>Add contribution</h2>
+      <p id="contributionGoalName">Record money saved toward your goal.</p>
+
+      <form id="contributionForm">
+        <label>Amount (₹)
+          <input id="contributionAmount" type="number"
+                 placeholder="1000" min="0.01" step="0.01" required>
+        </label>
+
+        <label>Note (optional)
+          <input id="contributionNote" type="text"
+                 placeholder="Monthly savings" maxlength="255">
+        </label>
+
+        <button class="primary-btn full" type="submit">
+          Add contribution
+        </button>
+      </form>
     </div>
   </div>
 

@@ -29,3 +29,5 @@ static/receipts/*
 # Database (Optional, but good practice)
 *.db
 *.sqlite3
+# Backup files
+*.backup

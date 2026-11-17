@@ -6,6 +6,8 @@ def register_blueprints(app):
     from .budgets import budgets_bp
     from .analytics import analytics_bp
     from .dashboard import dashboard_bp
+    from .savings import savings_bp
+
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(groups_bp, url_prefix='/api/groups')
     app.register_blueprint(expenses_bp, url_prefix='/api/expenses')
@@ -13,3 +15,4 @@ def register_blueprints(app):
     app.register_blueprint(budgets_bp, url_prefix='/api/budgets')
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+    app.register_blueprint(savings_bp, url_prefix='/api/savings')

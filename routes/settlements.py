@@ -6,7 +6,7 @@ from models.user import get_users_by_ids
 from utils.settlement_calc import calculate_group_balances, simplify_debts, get_pending_settlements_for_user
 from sockets.events import emit_to_user, emit_to_group
 from db import query_one, query_all, execute
-from app import limiter
+from extensions import limiter
 from config import Config
 
 settlements_bp = Blueprint('settlements', __name__)

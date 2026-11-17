@@ -2,7 +2,7 @@ import re
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
 from models.user import get_user_by_email, create_user
-from app import limiter
+from extensions import limiter
 from config import Config
 
 auth_bp = Blueprint('auth', __name__)

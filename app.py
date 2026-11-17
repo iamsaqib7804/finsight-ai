@@ -5,8 +5,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 from flask import Flask, render_template, redirect, url_for, jsonify, request
 from flask_login import LoginManager, current_user
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from extensions import limiter, get_remote_address
 from flask_wtf.csrf import CSRFProtect, generate_csrf
 from flask_talisman import Talisman
 
@@ -38,7 +37,11 @@ csp = {
 }
 Talisman(app, content_security_policy=csp, force_https=False)
 
-limiter = Limiter(key_func=get_remote_address, app=app, default_limits=[Config.RATELIMIT_DEFAULT], storage_uri='memory://', enabled=not os.environ.get('PYTEST_CURRENT_TEST'))
+app.config['RATELIMIT_DEFAULT'] = Config.RATELIMIT_DEFAULT
+app.config['RATELIMIT_STORAGE_URI'] = 'memory://'
+app.config['RATELIMIT_ENABLED'] = not bool(os.environ.get('PYTEST_CURRENT_TEST'))
+
+limiter.init_app(app)
 socketio = init_socketio(app)
 
 from routes import register_blueprints

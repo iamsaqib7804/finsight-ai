@@ -1497,8 +1497,10 @@ function openPage(page) {
     groups: ['GROUPS', 'Manage your groups'],
     settlements: ['SETTLEMENTS', 'Who owes whom'],
     budgets: ['BUDGETING', 'Personalized budgets'],
+    savings: ['SAVINGS GOALS', 'Track and manage your savings goals'],
     insights: ['MACHINE LEARNING', 'ML insights & explanations'],
     reports: ['REPORTS', 'Financial reports'],
+    'ai-assistant': ['FINANCIAL AI', 'Your AI Savings Assistant'],
     settings: ['PREFERENCES', 'Settings']
   };
   document.getElementById('pageEyebrow').textContent = titles[page]?.[0] || '';
@@ -1509,7 +1511,11 @@ function openPage(page) {
   if (page === 'groups') loadGroups().catch(() => {});
   if (page === 'settlements') loadSettlements().catch(() => {});
   if (page === 'budgets') loadBudgets().catch(() => {});
+  if (page === 'savings') loadSavingsGoals().catch(() => {});
   if (page === 'insights') loadInsights().catch(() => {});
+  if (page === 'ai-assistant') {
+  // AI Assistant page will be initialized here.
+  }
   if (page === 'reports') loadReports().catch(() => {});
   if (page === 'settings') loadSettings();
 }
@@ -1916,3 +1922,418 @@ document.addEventListener('click', function(event) {
     window.location.href = '/api/auth/login-page';
   }
 })();
+
+// ============================================================
+// FINSIGHT AI FINANCIAL CHAT
+// ============================================================
+
+const aiChatForm = document.getElementById('aiChatForm');
+const aiChatInput = document.getElementById('aiChatInput');
+const aiChatMessages = document.getElementById('aiChatMessages');
+const aiChatLoading = document.getElementById('aiChatLoading');
+const aiChatSendBtn = document.getElementById('aiChatSendBtn');
+
+let aiChatSending = false;
+
+function addAIChatMessage(message, sender) {
+  const messageEl = document.createElement('div');
+  messageEl.className = `ai-message ${sender}-message`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'ai-message-avatar';
+  avatar.textContent = sender === 'assistant' ? '✦' : 'You';
+
+  const content = document.createElement('div');
+  content.className = 'ai-message-content';
+
+  const name = document.createElement('strong');
+  name.textContent = sender === 'assistant' ? 'FinSight AI' : 'You';
+
+  const text = document.createElement('p');
+  text.textContent = message;
+
+  content.appendChild(name);
+  content.appendChild(text);
+
+  messageEl.appendChild(avatar);
+  messageEl.appendChild(content);
+
+  aiChatMessages.appendChild(messageEl);
+  aiChatMessages.scrollTop = aiChatMessages.scrollHeight;
+}
+
+async function sendAIChatMessage(message) {
+  if (aiChatSending) return;
+
+  const question = String(message || '').trim();
+
+  if (!question) return;
+
+  if (question.length > 2000) {
+    addAIChatMessage(
+      'Please keep your question within 2000 characters.',
+      'assistant'
+    );
+    return;
+  }
+
+  aiChatSending = true;
+  aiChatSendBtn.disabled = true;
+  aiChatInput.disabled = true;
+  aiChatLoading.hidden = false;
+
+  addAIChatMessage(question, 'user');
+
+  try {
+    const result = await api('/savings/agent/ask', {
+      method: 'POST',
+      body: { question }
+    });
+
+    if (!result || typeof result.answer !== 'string' || !result.answer.trim()) {
+      throw new Error('The assistant returned an empty response.');
+    }
+
+    addAIChatMessage(result.answer, 'assistant');
+
+  } catch (error) {
+    console.error('FinSight AI chat error:', error);
+
+    addAIChatMessage(
+      error.message || 'Unable to contact FinSight AI. Please try again.',
+      'assistant'
+    );
+
+  } finally {
+    aiChatSending = false;
+    aiChatSendBtn.disabled = false;
+    aiChatInput.disabled = false;
+    aiChatLoading.hidden = true;
+    aiChatInput.focus();
+  }
+}
+
+// Send button / Enter submission
+if (aiChatForm) {
+  aiChatForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const question = aiChatInput.value.trim();
+
+    if (!question) return;
+
+    aiChatInput.value = '';
+    await sendAIChatMessage(question);
+  });
+}
+
+// Suggested questions
+document.querySelectorAll('.ai-suggestion').forEach(button => {
+  button.addEventListener('click', () => {
+    const question = button.dataset.question;
+
+    if (question && !aiChatSending) {
+      sendAIChatMessage(question);
+    }
+  });
+});
+
+// Enter sends; Shift + Enter creates a new line
+if (aiChatInput) {
+  aiChatInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      aiChatForm.requestSubmit();
+    }
+  });
+}
+
+// ============================================================
+// SAVINGS GOALS
+// ============================================================
+
+let savingsGoalsCache = [];
+let activeContributionGoalId = null;
+let editingSavingsGoalId = null;
+
+const savingsGoalsGrid = document.getElementById('savingsGoalsGrid');
+const savingsGoalModal = document.getElementById('savingsGoalModal');
+const contributionModal = document.getElementById('contributionModal');
+
+function formatSavingsMoney(value) {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(Number(value) || 0);
+}
+
+async function loadSavingsGoals() {
+  if (!savingsGoalsGrid) return;
+
+  savingsGoalsGrid.innerHTML =
+    '<p style="font-size:11px;color:#999;padding:20px">Loading savings goals...</p>';
+
+  try {
+    const data = await api('/savings/goals');
+    savingsGoalsCache = data.goals || [];
+
+    const plansById = new Map(
+      (data.plans || []).map(plan => [Number(plan.goal_id), plan])
+    );
+
+    if (!savingsGoalsCache.length) {
+      savingsGoalsGrid.innerHTML = `
+        <div class="panel" style="grid-column:1/-1;text-align:center;padding:35px">
+          <h3>No savings goals yet</h3>
+          <p>Create your first goal to start tracking your progress.</p>
+        </div>`;
+      return;
+    }
+
+    savingsGoalsGrid.innerHTML = savingsGoalsCache.map(goal => {
+      const plan = plansById.get(Number(goal.id)) || {};
+      const progress = Math.min(100, Math.max(0,
+        Number(plan.progress_percentage) || 0
+      ));
+
+      const isCompleted = goal.status === 'completed';
+
+      return `
+        <div class="budget-card savings-goal-card">
+          <div class="b-top">
+            <h3>${escapeHtml(goal.goal_name)}</h3>
+            <span class="model-badge">${escapeHtml(goal.status)}</span>
+          </div>
+
+          <div class="spent">${formatSavingsMoney(goal.saved_amount)}</div>
+          <small>Saved of ${formatSavingsMoney(goal.target_amount)}</small>
+
+          <div class="budget-progress">
+            <span style="width:${progress}%"></span>
+          </div>
+
+          <div class="budget-foot">
+            <span>${progress.toFixed(1)}% completed</span>
+            <span>${formatSavingsMoney(plan.remaining_amount ?? Math.max(0, goal.target_amount - goal.saved_amount))} remaining</span>
+          </div>
+
+          <div class="savings-goal-details">
+            <p>Target date: <b>${escapeHtml(goal.target_date)}</b></p>
+            ${plan.days_remaining !== undefined
+              ? `<p>${Number(plan.days_remaining)} days remaining</p>`
+              : ''}
+            ${plan.daily_saving_required !== undefined
+              ? `<p>Daily amount suggested by plan: ${formatSavingsMoney(plan.daily_saving_required)}</p>`
+              : ''}
+          </div>
+
+          <div class="savings-goal-actions">
+            <button class="text-btn" data-goal-action="contribute"
+                    data-id="${Number(goal.id)}" ${isCompleted ? 'disabled' : ''}>
+              + Add money
+            </button>
+            <button class="text-btn" data-goal-action="history"
+                    data-id="${Number(goal.id)}">
+              History
+            </button>
+            <button class="text-btn" data-goal-action="edit"
+                    data-id="${Number(goal.id)}">
+              Edit
+            </button>
+            <button class="text-btn" data-goal-action="delete"
+                    data-id="${Number(goal.id)}" style="color:#ef6874">
+              Delete
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch (error) {
+    savingsGoalsGrid.innerHTML =
+      '<p style="color:#ef6874;padding:20px">Could not load savings goals.</p>';
+    showToast(error.message, 'error');
+  }
+}
+
+// Open create modal
+document.getElementById('createSavingsGoalBtn')?.addEventListener('click', () => {
+  editingSavingsGoalId = null;
+  document.getElementById('savingsGoalForm').reset();
+  document.getElementById('savingsGoalModalTitle').textContent = 'Create savings goal';
+  document.getElementById('saveSavingsGoalBtn').textContent = 'Save goal';
+  savingsGoalModal.classList.add('open');
+});
+
+// Close goal modal
+document.getElementById('closeSavingsGoalModal')?.addEventListener('click', () => {
+  savingsGoalModal.classList.remove('open');
+});
+
+savingsGoalModal?.addEventListener('click', event => {
+  if (event.target === savingsGoalModal) {
+    savingsGoalModal.classList.remove('open');
+  }
+});
+
+// Create / Edit goal
+document.getElementById('savingsGoalForm')?.addEventListener('submit', async event => {
+  event.preventDefault();
+
+  const payload = {
+    goal_name: document.getElementById('savingsGoalName').value.trim(),
+    target_amount: Number(document.getElementById('savingsGoalTarget').value),
+    target_date: document.getElementById('savingsGoalDate').value,
+    notes: document.getElementById('savingsGoalNotes').value.trim()
+  };
+
+  if (!payload.goal_name || !payload.target_amount ||
+      payload.target_amount <= 0 || !payload.target_date) {
+    showToast('Please enter valid goal details.', 'error');
+    return;
+  }
+
+  const button = document.getElementById('saveSavingsGoalBtn');
+  button.disabled = true;
+
+  try {
+    const path = editingSavingsGoalId
+      ? `/savings/goals/${editingSavingsGoalId}`
+      : '/savings/goals';
+
+    await api(path, {
+      method: editingSavingsGoalId ? 'PUT' : 'POST',
+      body: payload
+    });
+
+    savingsGoalModal.classList.remove('open');
+    showToast(
+      editingSavingsGoalId ? 'Goal updated successfully!' : 'Goal created successfully!',
+      'success'
+    );
+
+    editingSavingsGoalId = null;
+    await loadSavingsGoals();
+
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+});
+
+// Goal card actions
+savingsGoalsGrid?.addEventListener('click', async event => {
+  const button = event.target.closest('[data-goal-action]');
+  if (!button) return;
+
+  const id = Number(button.dataset.id);
+  const action = button.dataset.goalAction;
+  const goal = savingsGoalsCache.find(item => Number(item.id) === id);
+
+  if (!goal) return;
+
+  if (action === 'edit') {
+    editingSavingsGoalId = id;
+
+    document.getElementById('savingsGoalModalTitle').textContent = 'Edit savings goal';
+    document.getElementById('saveSavingsGoalBtn').textContent = 'Update goal';
+    document.getElementById('savingsGoalName').value = goal.goal_name;
+    document.getElementById('savingsGoalTarget').value = goal.target_amount;
+    document.getElementById('savingsGoalDate').value = String(goal.target_date).slice(0, 10);
+    document.getElementById('savingsGoalNotes').value = goal.notes || '';
+
+    savingsGoalModal.classList.add('open');
+  }
+
+  if (action === 'contribute') {
+    activeContributionGoalId = id;
+    document.getElementById('contributionForm').reset();
+    document.getElementById('contributionGoalName').textContent =
+      `Adding money to: ${goal.goal_name}`;
+
+    contributionModal.classList.add('open');
+  }
+
+  if (action === 'history') {
+    try {
+      const data = await api(`/savings/goals/${id}/contributions`);
+      const rows = data.contributions || [];
+
+      const history = rows.length
+        ? rows.map(item =>
+            `${formatSavingsMoney(item.amount)} — ${escapeHtml(item.note || 'Contribution')} (${escapeHtml(item.created_at)})`
+          ).join('\n')
+        : 'No contributions recorded yet.';
+
+      window.alert(`Contribution history: ${goal.goal_name}\n\n${history}`);
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  }
+
+  if (action === 'delete') {
+    const confirmed = window.confirm(
+      `Delete "${goal.goal_name}"?\n\nThis permanently deletes the goal and its contribution history. This action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    button.disabled = true;
+
+    try {
+      await api(`/savings/goals/${id}`, { method: 'DELETE' });
+      showToast('Savings goal deleted.', 'success');
+      await loadSavingsGoals();
+    } catch (error) {
+      showToast(error.message, 'error');
+      button.disabled = false;
+    }
+  }
+});
+
+// Contribution modal close
+document.getElementById('closeContributionModal')?.addEventListener('click', () => {
+  contributionModal.classList.remove('open');
+});
+
+contributionModal?.addEventListener('click', event => {
+  if (event.target === contributionModal) {
+    contributionModal.classList.remove('open');
+  }
+});
+
+// Add contribution
+document.getElementById('contributionForm')?.addEventListener('submit', async event => {
+  event.preventDefault();
+
+  if (!activeContributionGoalId) return;
+
+  const amount = Number(document.getElementById('contributionAmount').value);
+  const note = document.getElementById('contributionNote').value.trim();
+
+  if (!amount || amount <= 0) {
+    showToast('Enter a valid contribution amount.', 'error');
+    return;
+  }
+
+  const button = event.currentTarget.querySelector('button[type="submit"]');
+  button.disabled = true;
+
+  try {
+    await api(`/savings/goals/${activeContributionGoalId}/contributions`, {
+      method: 'POST',
+      body: { amount, note }
+    });
+
+    contributionModal.classList.remove('open');
+    showToast('Contribution added successfully!', 'success');
+    activeContributionGoalId = null;
+    await loadSavingsGoals();
+
+  } catch (error) {
+    showToast(error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+});

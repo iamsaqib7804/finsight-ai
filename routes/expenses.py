@@ -11,7 +11,7 @@ from models.group import log_activity
 from ml import classifier, anomaly_detector
 from sockets.events import emit_to_group
 from db import query_all, query_one, execute
-from app import limiter
+from extensions import limiter
 from config import Config
 import logging
 

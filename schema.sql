@@ -113,3 +113,32 @@ CREATE TABLE IF NOT EXISTS expense_comments (
     FOREIGN KEY (expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS savings_goals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    goal_name VARCHAR(100) NOT NULL,
+    target_amount DECIMAL(12,2) NOT NULL,
+    saved_amount DECIMAL(12,2) DEFAULT 0.00,
+    target_date DATE NOT NULL,
+    notes TEXT,
+    status VARCHAR(20) DEFAULT 'active',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_savings_user (user_id),
+    INDEX idx_savings_target_date (target_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS savings_contributions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    goal_id INT NOT NULL,
+    user_id INT NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    note TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (goal_id) REFERENCES savings_goals(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_contributions_goal (goal_id),
+    INDEX idx_contributions_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
